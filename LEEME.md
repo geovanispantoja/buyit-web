@@ -17,7 +17,7 @@ gente es la nuestra, no la de Vercel.
 
 1. Clonar el repo en el VPS (por ejemplo `/opt/buyit-web`):
    ```bash
-   git clone https://github.com/<usuario>/buyit-web.git /opt/buyit-web
+   git clone https://github.com/geovanispantoja/buyit-web.git /opt/buyit-web
    cd /opt/buyit-web
    ```
 2. Levantar (construye la app dentro de Docker; no hace falta Node en el VPS):
