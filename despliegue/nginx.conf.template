@@ -1,58 +1,79 @@
-# Buy-iT web (PWA) en el VPS.
-#  - Sirve la app (carpeta dist).
-#  - /api/*        -> backend de Vercel (asi la direccion que ve el usuario es la nuestra)
-#  - /fotos/subir  -> servicio de fotos del VPS (contenedor buyit-imagenes, misma red de Traefik)
-# Traefik entrega el HTTPS; este contenedor escucha en el puerto 8080 sin publicarlo.
+# Buy-iT web (PWA) en el VPS. Base: la plantilla de Pablo + lo que necesita la PWA.
+#  - Sirve la app compilada.
+#  - /api/*        -> backend de Vercel (el usuario solo ve buyit.ic-vf.org)
+#  - /fotos/subir  -> servicio de fotos (buyit-imagenes, red pangolin). Ese servicio no tiene CORS,
+#                     por eso la web sube las fotos por su mismo dominio.
+# Variables (se sustituyen al arrancar): BACKEND_HOST, FOTOS_INTERNO.
+# Traefik entrega el HTTPS; este contenedor escucha en 8080 sin publicarlo.
+
+resolver 127.0.0.11 valid=30s ipv6=off;   # DNS de docker; Vercel cambia de IP, por eso se resuelve dinamico
+
+map $http_x_forwarded_proto $esquema { default $http_x_forwarded_proto; "" $scheme; }
 
 server {
     listen 8080;
     server_name _;
     root /usr/share/nginx/html;
-
-    # DNS interno de Docker (resuelve tambien nombres de internet). Con variables, nginx
-    # no se cae al arrancar si el otro contenedor todavia no esta arriba.
-    resolver 127.0.0.11 valid=60s ipv6=off;
-
-    add_header X-Content-Type-Options nosniff always;
-    add_header Referrer-Policy strict-origin-when-cross-origin always;
-    add_header Permissions-Policy "geolocation=(self), camera=(self)" always;
+    index index.html;
+    server_tokens off;
 
     gzip on;
     gzip_types text/css application/javascript application/json application/manifest+json image/svg+xml;
 
+    include /etc/nginx/seguridad.conf;
+
+    # ---- API: mismo path, hacia Vercel ----
     location /api/ {
-        set $backend ${BUYIT_BACKEND_HOST};
-        proxy_pass https://$backend;
-        proxy_set_header Host $backend;
-        proxy_ssl_server_name on;
-        proxy_ssl_name $backend;
+        set $backend "https://${BACKEND_HOST}";
+        proxy_pass $backend;                       # sin URI: conserva /api/... tal cual
+        proxy_ssl_server_name on;                  # SNI, obligatorio para Vercel
+        proxy_ssl_name ${BACKEND_HOST};
+        proxy_set_header Host ${BACKEND_HOST};
+        proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto https;
+        proxy_set_header X-Forwarded-Proto $esquema;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_redirect https://${BACKEND_HOST}/ /;
         proxy_http_version 1.1;
+        client_max_body_size 10m;
+        proxy_connect_timeout 10s;
         proxy_read_timeout 60s;
-        client_max_body_size 2m;
+        include /etc/nginx/seguridad.conf;
         add_header Cache-Control "no-store" always;
     }
 
+    # ---- Fotos de la vitrina: subida por el mismo dominio ----
     location = /fotos/subir {
-        set $fotos ${BUYIT_FOTOS_INTERNO};
-        proxy_pass http://$fotos/subir;
+        set $fotos ${FOTOS_INTERNO};
+        proxy_pass http://$fotos/subir$is_args$args;
         proxy_set_header Authorization $http_authorization;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_request_buffering off;
-        client_max_body_size 8m;
+        client_max_body_size 10m;
         proxy_read_timeout 90s;
     }
 
-    # El service worker y la pagina principal nunca se cachean: asi cada version nueva llega sola.
-    location = /sw.js { add_header Cache-Control "no-cache" always; try_files $uri =404; }
-    location = /index.html { add_header Cache-Control "no-cache" always; }
-    location = /manifest.webmanifest { add_header Cache-Control "no-cache" always; default_type application/manifest+json; }
+    # ---- iOS: enlaces universales / verificacion de la app ----
+    location ^~ /.well-known/ {
+        default_type application/json;
+        try_files $uri =404;
+    }
 
-    # Archivos con huella en el nombre: se pueden guardar un año.
-    location /assets/ { add_header Cache-Control "public, max-age=31536000, immutable" always; try_files $uri =404; }
+    # ---- PWA: el service worker, la pagina y el manifiesto nunca en cache (asi las versiones nuevas llegan solas) ----
+    location = /sw.js               { include /etc/nginx/seguridad.conf; add_header Cache-Control "no-cache" always; try_files $uri =404; }
+    location = /index.html          { include /etc/nginx/seguridad.conf; add_header Cache-Control "no-cache" always; }
+    location = /manifest.webmanifest { include /etc/nginx/seguridad.conf; add_header Cache-Control "no-cache" always; default_type application/manifest+json; }
 
-    # App de una sola pagina: cualquier ruta (/compras, /viajes...) sirve index.html.
+    # Archivos con huella en el nombre: un ano de cache.
+    location /assets/ { include /etc/nginx/seguridad.conf; add_header Cache-Control "public, max-age=31536000, immutable" always; try_files $uri =404; }
+    location ~* \.(?:png|jpe?g|svg|webp|ico|ttf|woff2?)$ { include /etc/nginx/seguridad.conf; add_header Cache-Control "public, max-age=604800" always; try_files $uri =404; }
+
+    # App de una sola pagina: /compras, /viajes... sirven index.html.
     location / {
+        include /etc/nginx/seguridad.conf;
+        add_header Cache-Control "no-cache" always;
         try_files $uri $uri/ /index.html;
     }
+
+    location = /salud { default_type text/plain; return 200 "ok\n"; }
 }

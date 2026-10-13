@@ -25,11 +25,12 @@ gente es la nuestra, no la de Vercel.
    docker compose up -d --build
    docker logs buyit-web        # nginx arrancado, sin errores
    ```
+   La app se compila dentro de Docker: no hace falta copiar ningún build a mano.
    Debe estar en la misma red externa `pangolin` que `buyit-imagenes` (ya viene así en el compose).
 3. **Pablo** agrega la ruta en Traefik: `buyit.ic-vf.org` -> `http://buyit-web:8080`
    (contenedor `buyit-web`, red `pangolin`, puerto interno 8080; no se publica ningún puerto) con su
    certificado HTTPS. **HTTPS es obligatorio**: sin él no se instala como app ni funcionan ubicación ni avisos.
-4. Probar: abrir `https://buyit.ic-vf.org` en el teléfono, entrar con una cuenta y crear un pedido de prueba.
+4. Probar: `https://buyit.ic-vf.org/salud` debe responder `ok`. Luego abrir `https://buyit.ic-vf.org` en el teléfono, entrar con una cuenta y crear un pedido de prueba.
 
 ## Actualizar
 
@@ -42,8 +43,8 @@ Los teléfonos toman la versión nueva solos la próxima vez que abren la app.
 
 | Nombre | Por defecto | Para qué |
 |---|---|---|
-| `BUYIT_BACKEND_HOST` | `buyit-backend-nu.vercel.app` | dónde está el backend |
-| `BUYIT_FOTOS_INTERNO` | `buyit-imagenes:8090` | el servicio de fotos dentro de la red `pangolin` |
+| `BACKEND_HOST` | `buyit-backend-nu.vercel.app` | host del backend en Vercel, sin `https://` ni barra |
+| `FOTOS_INTERNO` | `buyit-imagenes:8090` | el servicio de fotos dentro de la red `pangolin` |
 | `VITE_VERSION` | `web` | texto de versión que se ve al pie y en Soporte |
 
 ## Trabajar en local
@@ -53,6 +54,11 @@ npm install
 npm run dev                  # http://localhost:5173, usa el backend de Vercel
 BUYIT_BACKEND=http://localhost:3000 npm run dev   # contra el backend local
 ```
+
+## Seguridad del contenedor (de la propuesta de Pablo)
+nginx sin privilegios, sistema de archivos de solo lectura (`read_only` + `tmpfs`), 128 MB de memoria, sin
+puertos publicados, cabeceras de seguridad en todas las respuestas y `/.well-known/` listo por si un día hay
+app nativa de iOS.
 
 ## Notas
 - **Cuenta en modo Internet:** al entrar por la web, la cuenta pasa a modo Internet y el backend deja de

@@ -1,6 +1,6 @@
-# Buy-iT web (PWA). Traefik lo alcanza por la red externa "pangolin" usando el nombre del contenedor:
+# Buy-iT web (PWA). Traefik lo alcanza por la red externa "pangolin":
 #   https://buyit.ic-vf.org  ->  http://buyit-web:8080
-# No publica puertos al exterior.
+# No publica puertos al exterior. Actualizar: git pull && docker compose up -d --build
 services:
   buyit-web:
     build:
@@ -10,11 +10,16 @@ services:
     container_name: buyit-web
     restart: unless-stopped
     environment:
-      - BUYIT_BACKEND_HOST=${BUYIT_BACKEND_HOST:-buyit-backend-nu.vercel.app}
-      - BUYIT_FOTOS_INTERNO=${BUYIT_FOTOS_INTERNO:-buyit-imagenes:8090}
+      - BACKEND_HOST=${BACKEND_HOST:-buyit-backend-nu.vercel.app}
+      - FOTOS_INTERNO=${FOTOS_INTERNO:-buyit-imagenes:8090}
     networks:
       - pangolin
     mem_limit: 128m
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /var/cache/nginx:uid=101,gid=101
+      - /etc/nginx/conf.d:uid=101,gid=101
 networks:
   pangolin:
     external: true
