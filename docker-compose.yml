@@ -1,0 +1,20 @@
+# Buy-iT web (PWA). Traefik lo alcanza por la red externa "pangolin" usando el nombre del contenedor:
+#   https://buyit.ic-vf.org  ->  http://buyit-web:8080
+# No publica puertos al exterior.
+services:
+  buyit-web:
+    build:
+      context: .
+      args:
+        VITE_VERSION: ${VITE_VERSION:-web}
+    container_name: buyit-web
+    restart: unless-stopped
+    environment:
+      - BUYIT_BACKEND_HOST=${BUYIT_BACKEND_HOST:-buyit-backend-nu.vercel.app}
+      - BUYIT_FOTOS_INTERNO=${BUYIT_FOTOS_INTERNO:-buyit-imagenes:8090}
+    networks:
+      - pangolin
+    mem_limit: 128m
+networks:
+  pangolin:
+    external: true

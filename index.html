@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Buy-iT</title>
+    <meta name="description" content="Pide tus compras y viajes en Cuba" />
+    <meta name="theme-color" content="#3B4C9B" />
+    <link rel="icon" type="image/png" href="/favicon.png" />
+    <link rel="apple-touch-icon" href="/iconos/apple-touch-icon.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="Buy-iT" />
+    <script>
+      try {
+        var t = localStorage.getItem("buyit_tema");
+        if (t === "oscuro") document.documentElement.dataset.tema = "oscuro";
+      } catch (e) {}
+    </script>
+  </head>
+  <body>
+    <div id="raiz"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>
