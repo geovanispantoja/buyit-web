@@ -6,7 +6,7 @@ import { recordar, recuerdo } from "../../sesion";
 import { Cabecera } from "../../componentes/Cabecera";
 import { Avatar, Chip, Confirmar, Dialogo, DialogoCalificar, FotoPerfil, Segmentado } from "../../componentes/piezas";
 import { abrirWhatsApp, etiquetaMunicipio, fechaCorta, hora12, horaDe, monto, pedirUbicacion, telefonoBonito, useSondeo } from "../../util";
-import { gastado, productosDe, topeTotal } from "./comun";
+import { gastado, productosDe, topeTotal, useOcultos } from "./comun";
 
 const ESTADOS_EVENTO = {
   abortado: ["Abortado por ti", "gris"],
@@ -401,7 +401,9 @@ export default function PanelComprador() {
     return filas.sort((a, b) => b.id - a.id);
   }, [pedidos, mios.datos?.eventos, tarjetaActiva?.id]);
   const pendientes = historial.filter((h) => h.estado === "Reclamada" || h.estado === "Aceptada");
-  const terminados = historial.filter((h) => !(h.estado === "Reclamada" || h.estado === "Aceptada"));
+  const { ocultos, ocultar } = useOcultos(`ocultos_comprador_${sesion.usuario.id}`, [...pendientes.map((h) => h.id), ...(activo ? [activo.id] : [])]);
+  const terminados = historial.filter((h) => !(h.estado === "Reclamada" || h.estado === "Aceptada") && !ocultos.has(h.id));
+  const [confirmarBorrar, setConfirmarBorrar] = useState(false);
 
   async function cambiarServicio(activar, cats) {
     setErrorServicio(null);
@@ -485,6 +487,11 @@ export default function PanelComprador() {
 
         <span className="seccion">Mis pedidos</span>
         <Segmentado opciones={[["pendientes", `Pendientes · ${pendientes.length}`], ["historial", `Historial · ${terminados.length}`]]} valor={pestana} onCambio={setPestana} />
+        {pestana === "historial" && terminados.length > 0 && (
+          <button className="btn chico" style={{ alignSelf: "flex-end", color: "var(--rojo)" }} onClick={() => setConfirmarBorrar(true)}>
+            Borrar historial
+          </button>
+        )}
         {(pestana === "pendientes" ? pendientes : terminados).length === 0 && (
           <div className="vacio">{historial.length === 0 ? "Todavía no has tomado ningún pedido." : pestana === "pendientes" ? "No tienes pedidos pendientes." : "Todavía no hay pedidos terminados."}</div>
         )}
@@ -543,6 +550,17 @@ export default function PanelComprador() {
             refrescar();
           }}
           onCerrar={() => setDialogo(null)}
+        />
+      )}
+      {confirmarBorrar && (
+        <Confirmar
+          titulo="¿Borrar historial?"
+          texto="Se quitan de esta lista los pedidos que ya terminaron, y no vuelven a aparecer. El que tienes en curso se queda. No se borra nada en el servidor: el cliente y el panel los siguen viendo."
+          si="Sí, borrar"
+          no="Cancelar"
+          peligro
+          onSi={() => ocultar(terminados.map((h) => h.id))}
+          onCerrar={() => setConfirmarBorrar(false)}
         />
       )}
       {dialogo?.historial && (

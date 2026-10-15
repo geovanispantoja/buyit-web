@@ -1,3 +1,6 @@
+import { useCallback, useEffect, useState } from "react";
+import { recordar, recuerdo } from "../../sesion";
+
 // Traduce un pedido tal como lo devuelve el backend a lo que se muestra.
 export function estadoPedido(p) {
   switch (p?.estado) {
@@ -51,4 +54,34 @@ export function topeTotal(productos) {
 
 export function gastado(productos) {
   return productos.filter((x) => x.comprado).reduce((s, x) => s + x.cantidad * (x.precioReal || 0), 0);
+}
+
+/**
+ * "Borrar historial" (igual que la app): los pedidos terminados que el usuario quita se recuerdan
+ * EN ESTE NAVEGADOR y no vuelven con el sondeo. Si uno revive (lo reabren, lo vuelve a tomar),
+ * se deja de ocultar solo. No borra nada en el servidor.
+ */
+export function useOcultos(clave, idsActivos) {
+  const [ocultos, setOcultos] = useState(() => new Set(recuerdo(clave, [])));
+  const firmaActivos = idsActivos.join(",");
+  useEffect(() => {
+    const revividos = idsActivos.filter((id) => ocultos.has(id));
+    if (revividos.length === 0) return;
+    const nuevo = new Set(ocultos);
+    revividos.forEach((id) => nuevo.delete(id));
+    recordar(clave, [...nuevo]);
+    setOcultos(nuevo);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [firmaActivos, clave]);
+  const ocultar = useCallback(
+    (ids) => {
+      setOcultos((prev) => {
+        const nuevo = new Set([...prev, ...ids]);
+        recordar(clave, [...nuevo]);
+        return nuevo;
+      });
+    },
+    [clave]
+  );
+  return { ocultos, ocultar };
 }

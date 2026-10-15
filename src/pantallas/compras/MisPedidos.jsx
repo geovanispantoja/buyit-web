@@ -3,9 +3,9 @@ import { useNavigate } from "react-router-dom";
 import { api, textoDeError } from "../../api";
 import { useApp } from "../../contexto";
 import { Cabecera } from "../../componentes/Cabecera";
-import { Avatar, Chip, Segmentado } from "../../componentes/piezas";
+import { Avatar, Chip, Confirmar, Segmentado } from "../../componentes/piezas";
 import { haceCuanto, horaDe, monto, useSondeo } from "../../util";
-import { CHIP_CLIENTE, FINALES, estadoPedido, productosDe, topeTotal } from "./comun";
+import { CHIP_CLIENTE, FINALES, estadoPedido, productosDe, topeTotal, useOcultos } from "./comun";
 
 /** Cuantos compradores hay en servicio para la zona/categoria de ESTE pedido. */
 function CompradoresEnZona({ municipioId, categoriaId }) {
@@ -151,9 +151,11 @@ export default function MisPedidos() {
   const [pestana, setPestana] = useState("activos");
   const { datos, error, cargando, refrescar } = useSondeo(() => api.misPedidos(), 15000);
 
+  const [confirmarBorrar, setConfirmarBorrar] = useState(false);
   const pedidos = datos?.pedidos || [];
   const activos = pedidos.filter((p) => !FINALES.includes(estadoPedido(p)));
-  const historial = pedidos.filter((p) => FINALES.includes(estadoPedido(p)));
+  const { ocultos, ocultar } = useOcultos(`ocultos_cliente_${sesion.usuario.id}`, activos.map((p) => p.id));
+  const historial = pedidos.filter((p) => FINALES.includes(estadoPedido(p)) && !ocultos.has(p.id));
   const lista = pestana === "activos" ? activos : historial;
 
   return (
@@ -174,6 +176,11 @@ export default function MisPedidos() {
           onCambio={setPestana}
         />
 
+        {pestana === "historial" && historial.length > 0 && (
+          <button className="btn chico" style={{ alignSelf: "flex-end", color: "var(--rojo)" }} onClick={() => setConfirmarBorrar(true)}>
+            Borrar historial
+          </button>
+        )}
         {cargando && <div className="vacio">Cargando tus pedidos…</div>}
         {error && !datos && <div className="error">{textoDeError(error)}</div>}
         {!cargando && lista.length === 0 && (
@@ -183,6 +190,17 @@ export default function MisPedidos() {
           <TarjetaPedido key={p.id} p={p} refrescar={refrescar} onAbrir={() => navegar(`/compras/pedido/${p.id}`)} />
         ))}
       </div>
+      {confirmarBorrar && (
+        <Confirmar
+          titulo="¿Borrar historial?"
+          texto="Se quitan de esta lista los pedidos terminados y cancelados, y no vuelven a aparecer. Los pedidos en curso se quedan. No se borra nada en el servidor: el comprador y el panel los siguen viendo."
+          si="Sí, borrar"
+          no="Cancelar"
+          peligro
+          onSi={() => ocultar(historial.map((p) => p.id))}
+          onCerrar={() => setConfirmarBorrar(false)}
+        />
+      )}
     </div>
   );
 }
