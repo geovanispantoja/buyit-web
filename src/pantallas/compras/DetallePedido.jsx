@@ -6,7 +6,7 @@ import { recordar, recuerdo } from "../../sesion";
 import { BarraTitulo } from "../../componentes/Cabecera";
 import { Chip, Confirmar, Dialogo, DialogoCalificar, FotoPerfil } from "../../componentes/piezas";
 import { abrirMapa, abrirWhatsApp, fechaCorta, hora12, monto, telefonoBonito, useSondeo } from "../../util";
-import { CHIP_CLIENTE, estadoPedido, gastado, productosDe, topeTotal } from "./comun";
+import { CHIP_CLIENTE, estadoPedido, gastado, huellaProductos, productosDe, topeTotal } from "./comun";
 
 function CalificacionesComprador({ transportistaId, onCerrar }) {
   const [datos, setDatos] = useState(null);
@@ -44,7 +44,7 @@ export default function DetallePedido() {
 
   useEffect(() => {
     api.pedido(id).then((r) => setDetalle(r.detalle || [])).catch(() => {});
-  }, [id, p?.version]);
+  }, [id, p?.version, huellaProductos(p)]);
 
   if (lista.cargando) return <div className="cargando">Cargando…</div>;
   if (!p)

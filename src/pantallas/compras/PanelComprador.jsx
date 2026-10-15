@@ -6,7 +6,7 @@ import { recordar, recuerdo } from "../../sesion";
 import { Cabecera } from "../../componentes/Cabecera";
 import { Avatar, Chip, Confirmar, Dialogo, DialogoCalificar, FotoPerfil, Segmentado } from "../../componentes/piezas";
 import { abrirWhatsApp, etiquetaMunicipio, fechaCorta, hora12, horaDe, monto, pedirUbicacion, telefonoBonito, useSondeo } from "../../util";
-import { gastado, productosDe, topeTotal, useOcultos } from "./comun";
+import { gastado, huellaProductos, productosDe, topeTotal, useOcultos } from "./comun";
 
 const ESTADOS_EVENTO = {
   abortado: ["Abortado por ti", "gris"],
@@ -121,9 +121,15 @@ function PedidoActivo({ p, refrescar }) {
 
   useEffect(() => {
     api.pedido(p.id).then((r) => setDetalle(r)).catch(() => {});
-  }, [p.id, p.version]);
+  }, [p.id, p.version, huellaProductos(p)]);
 
-  const productos = productosDe({ detalle_pedido: detalle?.detalle || p.detalle_pedido });
+  // Detalle completo (texto extra, lugar) de /pedidos/:id, con tope/cantidad/comprado de la lista que se refresca sola:
+  // asi un tope que el cliente sube desde la app se ve en el siguiente refresco.
+  const productos = productosDe({
+    detalle_pedido: detalle?.detalle
+      ? detalle.detalle.map((d) => ({ ...d, ...((p.detalle_pedido || []).find((x) => x.orden === d.orden) || {}) }))
+      : p.detalle_pedido,
+  });
   const comprados = productos.filter((x) => x.comprado).length;
   const estado = p.estado;
   const esDigital = p.forma_pago === "digital";

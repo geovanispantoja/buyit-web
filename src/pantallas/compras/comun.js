@@ -85,3 +85,16 @@ export function useOcultos(clave, idsActivos) {
   );
   return { ocultos, ocultar };
 }
+
+/**
+ * Huella de los productos de un pedido tal como vienen en la lista que se refresca sola (cada 15 s).
+ * Subir un tope o marcar un producto NO cambia la "version" del pedido, asi que el detalle se vuelve
+ * a pedir cuando cambia esta huella (cantidad, tope, comprado, precio real), no solo la version.
+ */
+export function huellaProductos(p) {
+  return JSON.stringify(
+    [...(p?.detalle_pedido || [])]
+      .sort((a, b) => a.orden - b.orden)
+      .map((d) => [d.orden, d.cantidad, d.precio_maximo, d.comprado, d.precio_real])
+  );
+}
