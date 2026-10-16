@@ -189,8 +189,8 @@ export default function Entrar() {
     <div className="app">
       <div className="contenido" style={{ paddingTop: "calc(32px + env(safe-area-inset-top))" }}>
         <div className="columna" style={{ alignItems: "center", gap: 8, marginBottom: 8 }}>
-          <img src="/iconos/icono-192.png" alt="" width="84" height="84" style={{ borderRadius: 20 }} />
-          <h1 style={{ margin: 0, fontSize: 26, fontWeight: 800 }}>Buy-iT</h1>
+          {/* El logo ya lleva el nombre "BuyIT": no se repite como titulo. */}
+          <img src="/iconos/icono-512.png" alt="Buy-iT" width="150" height="150" />
           <span className="gris">Tus compras y viajes, desde cualquier teléfono</span>
         </div>
 
