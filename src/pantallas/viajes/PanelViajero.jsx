@@ -1,12 +1,17 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api, textoDeError } from "../../api";
 import { useApp } from "../../contexto";
 import { recordar, recuerdo } from "../../sesion";
 import { Cabecera } from "../../componentes/Cabecera";
-import { Chip, Confirmar, DialogoCalificar, FotoPerfil } from "../../componentes/piezas";
-import { abrirMapa, abrirWhatsApp, etiquetaVehiculo, haceCuanto, horaDe, monto, telefonoBonito, useSondeo } from "../../util";
+import { Avatar, Chip, Confirmar, DialogoCalificar, FotoPerfil } from "../../componentes/piezas";
+import { abrirMapa, abrirWhatsApp, etiquetaVehiculo, haceCuanto, horaDe, monto, telefonoBonito, useCuentaAtras, useSondeo } from "../../util";
 import { ACTIVOS_VIAJE, CHIP_VIAJE, DialogoContraoferta, ruta } from "./comun";
+
+/** Estado para "Pedir de nuevo con Julio": el mismo recorrido, con ese conductor ya elegido. */
+function repetirCon(v) {
+  return { repetir: v, conductor: { usuario_id: v.conductor_id, nombre: v.conductor_nombre, tipo_vehiculo: v.conductor_vehiculo || v.tipo_vehiculo } };
+}
 
 function ViajeActivo({ v, refrescar }) {
   const { avisar } = useApp();
@@ -14,8 +19,16 @@ function ViajeActivo({ v, refrescar }) {
   const [dialogo, setDialogo] = useState(null);
   const [ocupado, setOcupado] = useState(false);
   const [ubicacion, setUbicacion] = useState(null);
-  const [chip, tono] = CHIP_VIAJE[v.estado] || ["Viaje", "gris"];
+  const reservado = v.estado === "buscando" && v.en_reserva;
+  const [chip, tono] = reservado ? [`Reservado para ${v.conductor_preferido_nombre || "tu conductor"}`, "indigo"] : CHIP_VIAJE[v.estado] || ["Viaje", "gris"];
   const yaCalifique = recuerdo(`calificado_viaje_${v.id}`, false);
+  const cuenta = useCuentaAtras(reservado ? v.preferido_hasta : null);
+  // Al llegar a 0 se pide la lista: el backend abre el viaje a todos y lo dice.
+  const llegoACero = cuenta?.seg === 0;
+  useEffect(() => {
+    if (llegoACero) refrescar();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [llegoACero]);
 
   async function accion(fn, ok) {
     setOcupado(true);
@@ -38,7 +51,30 @@ function ViajeActivo({ v, refrescar }) {
       </div>
       <span className="titulo">{ruta(v)}</span>
 
-      {v.estado === "buscando" && (
+      {reservado && (
+        <>
+          <div className="caja-suave">
+            <div className="fila">
+              <Avatar nombre={v.conductor_preferido_nombre} tono="menta" />
+              <div className="columna crece" style={{ gap: 0 }}>
+                <span className="negrita">Esperando a {v.conductor_preferido_nombre || "tu conductor"}</span>
+                <span className="sub">Ya le llegó el aviso</span>
+              </div>
+              <div className="columna" style={{ alignItems: "flex-end", gap: 2 }}>
+                <span className="reloj">{cuenta?.texto || "0:00"}</span>
+                <span className="sub">quedan</span>
+              </div>
+            </div>
+          </div>
+          <span className="texto-chico">Ofreces <b>{monto(v.precio_actual)} CUP</b>. Si no responde a tiempo, tu viaje pasa solo a todos los conductores de {etiquetaVehiculo(v.tipo_vehiculo).toLowerCase()}.</span>
+          <div className="rejilla-2">
+            <button className="btn secundario" disabled={ocupado} onClick={() => accion(() => api.abrirViajeATodos(v.id), "Listo: ya lo ven todos los conductores.")}>Abrir a todos ya</button>
+            <button className="btn peligro" disabled={ocupado} onClick={() => setDialogo("cancelar")}>Cancelar</button>
+          </div>
+        </>
+      )}
+
+      {v.estado === "buscando" && !reservado && (
         <>
           <span className="texto-chico">Ofreces <b>{monto(v.precio_actual)} CUP</b>. Publicado {haceCuanto(v.creado_en)}{v.vence_en ? ` · vence a las ${horaDe(v.vence_en)}` : ""}.</span>
           <button className="btn peligro ancho" disabled={ocupado} onClick={() => setDialogo("cancelar")}>Cancelar viaje</button>
@@ -111,7 +147,14 @@ function ViajeActivo({ v, refrescar }) {
         <>
           <span>Total: <b>{monto(v.precio_actual)} CUP</b></span>
           {yaCalifique ? <span className="texto-chico negrita menta">✓ Calificación enviada</span> : <button className="btn primario ancho" onClick={() => setDialogo("calificar")}>Calificar al conductor</button>}
-          <button className="btn secundario ancho" onClick={() => navegar("/viajes/nuevo", { state: { repetir: v } })}>Pedir de nuevo este viaje</button>
+          {v.conductor_id && v.conductor_nombre ? (
+            <>
+              <button className="btn primario ancho" onClick={() => navegar("/viajes/nuevo", { state: repetirCon(v) })}>Pedir de nuevo con {v.conductor_nombre}</button>
+              <button className="btn secundario ancho" onClick={() => navegar("/viajes/nuevo", { state: { repetir: v } })}>Pedir de nuevo a cualquiera</button>
+            </>
+          ) : (
+            <button className="btn secundario ancho" onClick={() => navegar("/viajes/nuevo", { state: { repetir: v } })}>Pedir de nuevo este viaje</button>
+          )}
         </>
       )}
 
@@ -177,8 +220,12 @@ export default function PanelViajero() {
               <div className="fila entre"><Chip tono={tono}>{chip}</Chip><span className="sub">#{v.id}</span></div>
               <span className="negrita texto-chico">{ruta(v)}</span>
               <div className="fila entre">
-                <span className="sub">{etiquetaVehiculo(v.tipo_vehiculo)} · {monto(v.precio_actual)} CUP</span>
-                <button className="btn chico" onClick={() => navegar("/viajes/nuevo", { state: { repetir: v } })}>Pedir de nuevo</button>
+                <span className="sub">{etiquetaVehiculo(v.tipo_vehiculo)}{v.conductor_nombre ? ` · ${v.conductor_nombre}` : ""} · {monto(v.precio_actual)} CUP</span>
+                {v.estado === "finalizado" && v.conductor_id && v.conductor_nombre ? (
+                  <button className="btn chico" onClick={() => navegar("/viajes/nuevo", { state: repetirCon(v) })}>Con {v.conductor_nombre} otra vez</button>
+                ) : (
+                  <button className="btn chico" onClick={() => navegar("/viajes/nuevo", { state: { repetir: v } })}>Pedir de nuevo</button>
+                )}
               </div>
             </article>
           );

@@ -167,3 +167,16 @@ export function telefonoBonito(t) {
   const s = String(t);
   return s.startsWith("+") ? s : `+${s}`;
 }
+
+/** Cuenta regresiva hasta `hastaIso` ("4:12"), que se actualiza cada segundo. null si no hay fecha. */
+export function useCuentaAtras(hastaIso) {
+  const [ahora, setAhora] = useState(Date.now());
+  useEffect(() => {
+    if (!hastaIso) return undefined;
+    const t = setInterval(() => setAhora(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, [hastaIso]);
+  if (!hastaIso) return null;
+  const seg = Math.max(0, Math.round((new Date(hastaIso).getTime() - ahora) / 1000));
+  return { seg, texto: `${Math.floor(seg / 60)}:${String(seg % 60).padStart(2, "0")}` };
+}

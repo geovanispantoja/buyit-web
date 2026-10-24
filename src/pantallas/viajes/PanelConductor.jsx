@@ -3,8 +3,8 @@ import { api, textoDeError } from "../../api";
 import { useApp } from "../../contexto";
 import { recordar, recuerdo } from "../../sesion";
 import { Cabecera } from "../../componentes/Cabecera";
-import { Chip, Confirmar, Dialogo, DialogoCalificar, FotoPerfil } from "../../componentes/piezas";
-import { VEHICULOS, abrirMapa, abrirWhatsApp, etiquetaMunicipio, etiquetaVehiculo, haceCuanto, monto, telefonoBonito, useSondeo } from "../../util";
+import { Avatar, Chip, Confirmar, Dialogo, DialogoCalificar, FotoPerfil } from "../../componentes/piezas";
+import { VEHICULOS, abrirMapa, abrirWhatsApp, etiquetaMunicipio, etiquetaVehiculo, haceCuanto, monto, telefonoBonito, useCuentaAtras, useSondeo } from "../../util";
 import { ACTIVOS_VIAJE, CHIP_VIAJE, DialogoContraoferta, ruta } from "./comun";
 
 /** Mientras el viaje esta aceptado y la app abierta, manda la ubicacion del conductor cada minuto. */
@@ -119,13 +119,61 @@ function MiViaje({ v, refrescar }) {
   );
 }
 
+/** Viaje que un viajero le pidio A ESTE conductor: arriba y resaltado, con su cuenta regresiva. */
+function PedidoParaMi({ v, ocupado, onContra, refrescar }) {
+  const { avisar } = useApp();
+  const cuenta = useCuentaAtras(v.preferido_hasta);
+  const [trabajando, setTrabajando] = useState(false);
+  const llegoACero = cuenta?.seg === 0;
+  useEffect(() => {
+    if (llegoACero) refrescar();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [llegoACero]);
+  async function accion(fn, ok) {
+    setTrabajando(true);
+    try { await fn(); avisar(ok); refrescar(); } catch (e) { avisar(textoDeError(e)); } finally { setTrabajando(false); }
+  }
+  return (
+    <section className="tarjeta para-mi" style={{ borderRadius: 20 }}>
+      <div className="fila entre">
+        <Chip tono="ambar">⭐ Te lo pidieron a ti</Chip>
+        <span className="negrita" style={{ color: "var(--ambar)" }}>{cuenta?.texto}</span>
+      </div>
+      <div className="fila">
+        <Avatar nombre={v.cliente_nombre} />
+        <div className="columna" style={{ gap: 0 }}>
+          <span className="negrita">{v.cliente_nombre || "Un viajero"}</span>
+          <span className="sub">{v.viajes_contigo > 0 ? `Ya viajó contigo ${v.viajes_contigo} ${v.viajes_contigo === 1 ? "vez" : "veces"}` : "Te eligió a ti"}</span>
+        </div>
+      </div>
+      <span className="titulo">{ruta(v)}</span>
+      <div className="fila entre">
+        <span className="sub">{etiquetaVehiculo(v.tipo_vehiculo)} · ofrece</span>
+        <span style={{ fontSize: 22, fontWeight: 800 }}>{monto(v.precio_actual)} CUP</span>
+      </div>
+      {v.gps_cliente_lat && v.gps_cliente_lng && (
+        <button className="btn texto" style={{ alignSelf: "flex-start" }} onClick={() => abrirMapa(v.gps_cliente_lat, v.gps_cliente_lng)}>📍 Ver ubicación del viajero</button>
+      )}
+      <div className="rejilla-2">
+        <button className="btn primario" style={{ height: 44 }} disabled={ocupado || trabajando} onClick={() => accion(() => api.aceptarViaje(v.id), "¡Viaje confirmado! Ve a buscar al viajero.")}>Aceptar</button>
+        <button className="btn secundario" disabled={ocupado || trabajando} onClick={onContra}>Contraofertar</button>
+      </div>
+      <button className="btn suave ancho" disabled={trabajando} onClick={() => accion(() => api.noPuedoViaje(v.id), "Listo: se le abrió a los demás conductores.")}>No puedo ahora</button>
+      <span className="sub">{ocupado ? "Termina tu viaje actual para tomar otro. " : ""}Solo tú lo ves por unos minutos. Si no respondes, se abre a los demás.</span>
+    </section>
+  );
+}
+
 export default function PanelConductor() {
   const { sesion, avisar } = useApp();
   const [dialogo, setDialogo] = useState(null);
   const mios = useSondeo(() => api.misViajes(), 10000);
   const perfil = mios.datos?.perfil;
   const enServicio = !!perfil?.enServicio;
-  const disp = useSondeo(() => (enServicio ? api.viajesDisponibles() : Promise.resolve({ viajes: [] })), 10000, [enServicio]);
+  // Se consulta siempre: un viaje que le pidieron A EL le llega aunque este fuera de servicio.
+  const disp = useSondeo(() => api.viajesDisponibles(), 10000, [enServicio]);
+  const paraMi = (disp.datos?.viajes || []).filter((v) => v.para_mi);
+  const cercanos = enServicio ? (disp.datos?.viajes || []).filter((v) => !v.para_mi) : [];
   const [vehiculo, setVehiculo] = useState(null);
 
   const viajes = mios.datos?.viajes || [];
@@ -181,11 +229,15 @@ export default function PanelConductor() {
         {[...activos, ...porCalificar].length > 0 && <span className="seccion">Mis viajes en marcha</span>}
         {[...activos, ...porCalificar].map((v) => <MiViaje key={v.id} v={v} refrescar={() => { mios.refrescar(); disp.refrescar(); }} />)}
 
-        <span className="seccion">Solicitudes cerca de ti{enServicio ? ` · ${disp.datos?.viajes?.length || 0}` : ""}</span>
+        {paraMi.map((v) => (
+          <PedidoParaMi key={v.id} v={v} ocupado={ocupado} onContra={() => setDialogo({ contra: v })} refrescar={() => { mios.refrescar(); disp.refrescar(); }} />
+        ))}
+
+        <span className="seccion">Solicitudes cerca de ti{enServicio ? ` · ${cercanos.length}` : ""}</span>
         {!enServicio && <div className="vacio">Ponte en servicio para ver las solicitudes de viaje.</div>}
-        {enServicio && (disp.datos?.viajes?.length || 0) === 0 && <div className="vacio">No hay solicitudes ahora mismo.</div>}
+        {enServicio && cercanos.length === 0 && <div className="vacio">No hay solicitudes ahora mismo.</div>}
         {enServicio &&
-          (disp.datos?.viajes || []).map((v) => (
+          cercanos.map((v) => (
             <section key={v.id} className="tarjeta" style={{ borderRadius: 20 }}>
               <div className="fila entre">
                 <span className="titulo crece">{ruta(v)}</span>

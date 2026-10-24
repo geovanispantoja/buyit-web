@@ -148,6 +148,7 @@ img { max-width: 100%; display: block; }
 .btn.whatsapp { background: var(--whatsapp); color: #fff; height: 44px; border-radius: 12px; font-size: 14px; }
 .btn.chico { height: 36px; border-radius: 10px; padding: 0 12px; font-size: 13px; font-weight: 700; background: var(--fondo); color: var(--indigo-fuerte); }
 .btn.chico.lleno { background: var(--indigo); color: #fff; }
+.btn.suave { background: var(--indigo-suave); color: var(--indigo-fuerte); height: 44px; border-radius: 12px; font-weight: 700; font-size: 14px; }
 .btn.texto { background: none; color: var(--indigo); height: auto; padding: 6px 0; font-weight: 700; font-size: 14px; }
 .btn.punteado { background: transparent; border: 1.5px dashed #9aa3d6; color: var(--indigo-fuerte); font-weight: 700; font-size: 14px; }
 
@@ -231,3 +232,11 @@ img { max-width: 100%; display: block; }
 .cargando { display: grid; place-items: center; min-height: 60dvh; color: var(--gris); }
 .cartel { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(20px + env(safe-area-inset-bottom)); background: var(--tinta); color: var(--fondo); padding: 12px 16px; border-radius: 14px; font-weight: 600; z-index: 60; max-width: 92vw; box-shadow: 0 8px 24px rgba(0,0,0,0.25); }
 .pie-version { display: flex; align-items: center; justify-content: center; gap: 8px; color: var(--gris); font-size: 12px; padding: 16px 0 8px; }
+
+/* ---- Viajes: conductor de preferencia ---- */
+.opcion-cond { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; border: 1.5px solid var(--linea); border-radius: 14px; padding: 10px; background: var(--superficie); color: var(--tinta); font: inherit; cursor: pointer; }
+.opcion-cond.activa { border-color: var(--indigo); background: var(--indigo-suave); }
+.opcion-cond .marca-radio { width: 20px; height: 20px; border-radius: 50%; border: 2px solid var(--linea); margin-left: auto; flex-shrink: 0; }
+.opcion-cond.activa .marca-radio { border-color: var(--indigo); background: radial-gradient(var(--indigo) 45%, transparent 50%); }
+.tarjeta.para-mi { border: 2px solid var(--indigo); box-shadow: 0 0 0 4px color-mix(in srgb, var(--indigo) 18%, transparent); }
+.reloj { font-size: 28px; font-weight: 800; color: var(--indigo); letter-spacing: 1px; line-height: 1; }
