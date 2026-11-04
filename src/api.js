@@ -108,8 +108,11 @@ export const api = {
   misPedidos: () => get("/api/pedidos"),
   crearPedido: (cuerpo) => post("/api/pedidos", cuerpo),
   pedido: (id) => get(`/api/pedidos/${id}`),
-  compradoresEnServicio: (municipioId, categoriaId) =>
-    get(`/api/transportistas/disponibles-conteo?municipioId=${municipioId}${categoriaId ? `&categoriaId=${categoriaId}` : ""}`),
+  // categorias: un id, una lista de ids o nada.
+  compradoresEnServicio: (municipioId, categorias) => {
+    const ids = (Array.isArray(categorias) ? categorias : categorias ? [categorias] : []).filter(Boolean);
+    return get(`/api/transportistas/disponibles-conteo?municipioId=${municipioId}${ids.length ? `&categoriaIds=${ids.join(",")}` : ""}`);
+  },
   compradoresParaElegir: (municipioId) => get(`/api/compradores${municipioId ? `?municipioId=${municipioId}` : ""}`),
   aprobar: (id) => post(`/api/pedidos/${id}/aprobar`),
   rechazar: (id) => post(`/api/pedidos/${id}/rechazar`),

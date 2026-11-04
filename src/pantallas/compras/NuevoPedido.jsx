@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api, textoDeError } from "../../api";
 import { useApp } from "../../contexto";
@@ -33,7 +33,7 @@ export default function NuevoPedido() {
   const [telDestinatario, setTelDestinatario] = useState("");
   const [direccion, setDireccion] = useState("");
   const [municipioId, setMunicipioId] = useState(null);
-  const [categoriaId, setCategoriaId] = useState(null);
+  const [categoriaIds, setCategoriaIds] = useState([]); // vacia = "Sin categoría" (le llega a todos)
   const [hora, setHora] = useState(`${String(enTres.getHours()).padStart(2, "0")}:${String(enTres.getMinutes()).padStart(2, "0")}`);
   const [fecha, setFecha] = useState(
     `${enTres.getFullYear()}-${String(enTres.getMonth() + 1).padStart(2, "0")}-${String(enTres.getDate()).padStart(2, "0")}`
@@ -59,8 +59,8 @@ export default function NuevoPedido() {
 
   useEffect(() => {
     setEnZona(null);
-    if (municipioId) api.compradoresEnServicio(municipioId, categoriaId).then((r) => setEnZona(r.cantidad)).catch(() => {});
-  }, [municipioId, categoriaId]);
+    if (municipioId) api.compradoresEnServicio(municipioId, categoriaIds).then((r) => setEnZona(r.cantidad)).catch(() => {});
+  }, [municipioId, categoriaIds]);
 
   const tope = useMemo(
     () => productos.reduce((s, p) => s + (parseFloat(p.cantidad) || 0) * (parseFloat(p.tope) || 0), 0),
@@ -93,7 +93,8 @@ export default function NuevoPedido() {
       await api.crearPedido({
         destinatarioNombre: alias.trim(),
         destinatarioTelefono: telDestinatario.trim(),
-        categoriaId: categoriaId || undefined,
+        categoriaId: categoriaIds[0] || undefined, // backends viejos
+        categoriaIds: categoriaIds.length ? categoriaIds : undefined,
         direccion: direccion.trim(),
         horaEntrega: hora,
         fechaEntrega: `${d}/${m}/${a}`,
@@ -157,15 +158,8 @@ export default function NuevoPedido() {
 
         <section className="tarjeta">
           <span className="seccion" style={{ padding: 0 }}>Categoría (opcional)</span>
-          <span className="sub">Le dice al comprador qué tipo de pedido es. Si mezclas cosas, déjalo sin categoría.</span>
-          <div className="fila envuelve" style={{ gap: 8 }}>
-            <button className={`ficha ${!categoriaId ? "activa" : ""}`} onClick={() => setCategoriaId(null)}>Sin categoría</button>
-            {categorias.map((c) => (
-              <button key={c.id} className={`ficha ${categoriaId === c.id ? "activa" : ""}`} onClick={() => setCategoriaId(c.id)}>
-                {c.texto_original}
-              </button>
-            ))}
-          </div>
+          <span className="sub">Le dice al comprador qué tipo de pedido es. Puedes marcar varias; si es de todo un poco, déjalo en «Sin categoría».</span>
+          <SelectorCategorias categorias={categorias} elegidas={categoriaIds} onCambio={setCategoriaIds} />
         </section>
 
         <section className="tarjeta">
@@ -305,3 +299,82 @@ export default function NuevoPedido() {
     </div>
   );
 }
+
+const MAX_CATEGORIAS = 6;
+
+/**
+ * Combo de categorias con seleccion multiple (igual que la app). La primera opcion, "Sin categoría", es la
+ * implicita: sin nada marcado el pedido le llega a todos. Marcar una categoria quita "Sin categoría" y
+ * marcar "Sin categoría" limpia las demas. La lista no se cierra al marcar, para elegir varias seguidas.
+ */
+function SelectorCategorias({ categorias, elegidas, onCambio }) {
+  const [abierto, setAbierto] = useState(false);
+  const caja = useRef(null);
+  useEffect(() => {
+    if (!abierto) return;
+    const fuera = (e) => caja.current && !caja.current.contains(e.target) && setAbierto(false);
+    document.addEventListener("pointerdown", fuera);
+    return () => document.removeEventListener("pointerdown", fuera);
+  }, [abierto]);
+
+  const nombres = elegidas.map((id) => categorias.find((c) => c.id === id)?.texto_original).filter(Boolean);
+  const alternar = (id) =>
+    onCambio(elegidas.includes(id) ? elegidas.filter((x) => x !== id) : elegidas.length >= MAX_CATEGORIAS ? elegidas : [...elegidas, id]);
+
+  const fila = { display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", cursor: "pointer", fontSize: 15 };
+  return (
+    <div ref={caja} style={{ position: "relative" }}>
+      <button
+        type="button"
+        onClick={() => setAbierto((a) => !a)}
+        disabled={categorias.length === 0}
+        style={{
+          width: "100%", minHeight: 52, display: "flex", alignItems: "center", gap: 8, padding: "10px 14px",
+          borderRadius: 14, border: `1.5px solid ${abierto ? "var(--indigo)" : "var(--linea)"}`, background: "var(--superficie)",
+          color: nombres.length ? "var(--tinta)" : "var(--gris)", fontWeight: 600, fontSize: 15, textAlign: "left", cursor: "pointer",
+        }}
+      >
+        <span style={{ flex: 1, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>
+          {categorias.length === 0 ? "(sin categorías todavía)" : nombres.length ? nombres.join(", ") : "Sin categoría"}
+        </span>
+        {nombres.length > 1 && (
+          <span style={{ background: "var(--indigo)", color: "#fff", borderRadius: 999, padding: "1px 8px", fontSize: 12, fontWeight: 700 }}>{nombres.length}</span>
+        )}
+        <span style={{ color: "var(--gris)", fontSize: 18 }}>{abierto ? "▴" : "▾"}</span>
+      </button>
+      {abierto && (
+        <div
+          role="listbox"
+          aria-multiselectable="true"
+          style={{
+            position: "absolute", zIndex: 30, left: 0, right: 0, top: "calc(100% + 4px)", maxHeight: 360, overflowY: "auto",
+            background: "var(--superficie)", border: "1px solid var(--linea)", borderRadius: 14, boxShadow: "0 10px 30px rgba(0,0,0,.18)",
+          }}
+        >
+          <label style={{ ...fila, borderBottom: "1px solid var(--linea-suave)" }}>
+            <input type="checkbox" checked={elegidas.length === 0} onChange={() => onCambio([])} />
+            <span style={{ display: "flex", flexDirection: "column" }}>
+              <span style={{ fontWeight: elegidas.length === 0 ? 700 : 500 }}>Sin categoría</span>
+              <span className="texto-chico gris">Le llega a todos los compradores</span>
+            </span>
+          </label>
+          {categorias.map((c) => {
+            const marcada = elegidas.includes(c.id);
+            return (
+              <label key={c.id} style={fila}>
+                <input type="checkbox" checked={marcada} onChange={() => alternar(c.id)} />
+                <span style={{ fontWeight: marcada ? 700 : 500 }}>{c.texto_original}</span>
+              </label>
+            );
+          })}
+          <div style={{ display: "flex", justifyContent: "flex-end", padding: 8, borderTop: "1px solid var(--linea-suave)", position: "sticky", bottom: 0, background: "var(--superficie)" }}>
+            <button type="button" className="btn" onClick={() => setAbierto(false)} style={{ padding: "8px 18px" }}>
+              Listo
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+

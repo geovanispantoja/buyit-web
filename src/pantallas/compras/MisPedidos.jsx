@@ -10,14 +10,16 @@ import { CHIP_CLIENTE, FINALES, estadoPedido, productosDe, topeTotal, useOcultos
 /** Cuantos compradores hay en servicio para la zona/categoria de ESTE pedido. */
 function CompradoresEnZona({ municipioId, categoriaId }) {
   const [n, setN] = useState(null);
+  // Puede ser un id o una lista; se compara por texto para no repetir la consulta en cada refresco.
+  const clave = Array.isArray(categoriaId) ? categoriaId.join(",") : categoriaId ? String(categoriaId) : "";
   useEffect(() => {
     let vivo = true;
     if (municipioId)
-      api.compradoresEnServicio(municipioId, categoriaId).then((r) => vivo && setN(r.cantidad)).catch(() => {});
+      api.compradoresEnServicio(municipioId, clave ? clave.split(",").map(Number) : []).then((r) => vivo && setN(r.cantidad)).catch(() => {});
     return () => {
       vivo = false;
     };
-  }, [municipioId, categoriaId]);
+  }, [municipioId, clave]);
   if (n === null) return null;
   return (
     <span className={`fila texto-chico negrita ${n === 0 ? "ambar" : "menta"}`} style={{ gap: 6 }}>
@@ -69,7 +71,7 @@ function TarjetaPedido({ p, onAbrir, refrescar }) {
       {estado === "buscando" && (
         <div className="fila" onClick={(e) => e.stopPropagation()}>
           <div className="columna crece">
-            <CompradoresEnZona municipioId={p.municipio_id} categoriaId={p.categoria_id} />
+            <CompradoresEnZona municipioId={p.municipio_id} categoriaId={p.categorias_ids?.length ? p.categorias_ids : p.categoria_id} />
             <span className="sub">Enviado {haceCuanto(p.creado_en)}</span>
           </div>
         </div>

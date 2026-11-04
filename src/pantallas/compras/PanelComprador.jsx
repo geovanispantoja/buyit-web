@@ -331,7 +331,8 @@ function PedidoActivo({ p, refrescar }) {
 
 function TarjetaDisponible({ p, categorias, puedeAceptar, onAceptar, onVerCliente }) {
   const productos = productosDe(p);
-  const categoria = categorias.find((c) => c.id === p.categoria_id)?.texto_original;
+  const ids = p.categorias_ids?.length ? p.categorias_ids : p.categoria_id ? [p.categoria_id] : [];
+  const categoria = ids.map((id) => categorias.find((c) => c.id === id)?.texto_original).filter(Boolean).join(", ") || undefined;
   return (
     <section className="tarjeta" style={{ borderRadius: 20 }}>
       {(categoria || p.coincide_vitrina) && (
