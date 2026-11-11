@@ -93,6 +93,7 @@ export const api = {
   // cuenta
   login: (telefono, password) => post("/api/auth/login", { telefono, password }),
   registrar: (datos) => post("/api/usuarios/registro", datos),
+  validarPromotor: (codigo) => get(`/api/promotores/validar?codigo=${encodeURIComponent(codigo)}`),
   pedirCodigo: (telefono) => post("/api/verificacion/solicitar", { telefono }),
   confirmarCodigo: (telefono, codigo) => post("/api/verificacion/confirmar", { telefono, codigo }),
   modo: () => post("/api/usuarios/modo", { modo: "api" }),

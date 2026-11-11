@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { api, textoDeError } from "../api";
 import { ROLES, rolPorEtiqueta } from "../sesion";
 import { CampoMunicipio, Segmentado } from "../componentes/piezas";
@@ -110,6 +110,21 @@ export default function Entrar() {
   const [numero, setNumero] = useState("");
   const [password, setPassword] = useState("");
   const [nombre, setNombre] = useState("");
+  // Codigo del promotor que lo ayudo (opcional). Queda en su cuenta del backend: no hace falta repetirlo.
+  const [codigoPromotor, setCodigoPromotor] = useState("");
+  const [promotor, setPromotor] = useState(null); // null = no se sabe | { existe, nombre }
+  useEffect(() => {
+    setPromotor(null);
+    if (codigoPromotor.length < 3) return;
+    let vivo = true;
+    const t = setTimeout(() => {
+      api.validarPromotor(codigoPromotor).then((r) => vivo && r.ok && setPromotor(r)).catch(() => {});
+    }, 600);
+    return () => {
+      vivo = false;
+      clearTimeout(t);
+    };
+  }, [codigoPromotor]);
   const [rol, setRol] = useState("Comprador cubano");
   const [municipios, setMunicipios] = useState([]);
   const [verificado, setVerificado] = useState(false);
@@ -158,6 +173,7 @@ export default function Entrar() {
       await api.registrar({
         telefono, tipo: datosRol.tipo, nombre: nombre.trim(), password,
         rolVisual: rol, municipios: recibe ? municipios : [],
+        codigoPromotor: codigoPromotor || undefined,
       });
       await iniciar(telefono, password);
     } catch (e) {
@@ -234,6 +250,22 @@ export default function Entrar() {
             <label className="campo">
               Tu nombre
               <input autoComplete="given-name" value={nombre} onChange={(e) => setNombre(e.target.value)} maxLength={40} />
+            </label>
+            <label className="campo">
+              Código de promotor (opcional)
+              <input
+                value={codigoPromotor}
+                placeholder="Ej: JULIO1"
+                autoCapitalize="characters"
+                onChange={(e) => setCodigoPromotor(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 16))}
+              />
+              <span className="ayuda" style={promotor ? { color: promotor.existe ? "var(--menta-oscuro, #0e6b4f)" : "var(--rojo, #a33a22)" } : undefined}>
+                {promotor?.existe
+                  ? `✓ Te ayudó ${promotor.nombre}`
+                  : promotor
+                    ? "No encontramos ese código. Revísalo, o déjalo vacío."
+                    : "Si un promotor de Buy-iT te ayudó, pon su código. Si ya tenías cuenta, déjalo vacío."}
+              </span>
             </label>
             <span className="seccion" style={{ padding: 0 }}>¿Qué eres?</span>
             <SelectorRol valor={rol} onCambio={setRol} />
